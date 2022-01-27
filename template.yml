@@ -11,7 +11,7 @@ Resources:
     Properties:
       FunctionName: random-name
       Handler: index.handler
-      Runtime: nodejs12.x
+      Runtime: nodejs14.x
       CodeUri: function/.
       Description: Generate random names
       Timeout: 10
@@ -38,7 +38,7 @@ Resources:
     Type: AWS::ElasticBeanstalk::Environment
     Properties:
       ApplicationName: !Ref application
-      EnvironmentName: BETA
+      EnvironmentName: X-RAY-DEMO
       OptionSettings:
         - Namespace: aws:elasticbeanstalk:application:environment
           OptionName: AWS_REGION
@@ -67,7 +67,8 @@ Resources:
         - Namespace: aws:autoscaling:launchconfiguration
           OptionName: IamInstanceProfile
           Value: !Ref instanceProfile
-      PlatformArn: arn:aws:elasticbeanstalk:::platform/Java 8 running on 64bit Amazon Linux
+      # PlatformArn: arn:aws:elasticbeanstalk:::platform/Java 8 running on 64bit Amazon Linux
+      PlatformArn: arn:aws:elasticbeanstalk:::platform/Corretto 8 running on 64bit Amazon Linux 2
       VersionLabel: !Ref version
   instanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -89,6 +90,7 @@ Resources:
               - 'sts:AssumeRole'
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
       Policies:
         - PolicyName: resources
           PolicyDocument:
@@ -101,7 +103,7 @@ Resources:
                 Resource:
                   - 'arn:aws:dynamodb:*:*:table/scorekeep-*'
                   - 'arn:aws:sns:*:*:scorekeep-*'
-                  - 'arn:aws:lambda:*:*:function/random-name'
+                  - 'arn:aws:lambda:*:*:function:random-name'
         - PolicyName: beanstalk
           PolicyDocument:
             Version: 2012-10-17
@@ -121,18 +123,29 @@ Resources:
       Path: /
   notificationTopic:
     Type: AWS::SNS::Topic
+    
   userTable:
     Type: AWS::DynamoDB::Table
     Properties:
+      AttributeDefinitions:
+        - AttributeName: "id"
+          AttributeType: "S"
       KeySchema:
-        HashKeyElement: {AttributeName: id, AttributeType: S}
-      ProvisionedThroughput: {ReadCapacityUnits: 2, WriteCapacityUnits: 2}
+        - AttributeName: "id"
+          KeyType: "HASH"
+      BillingMode: PAY_PER_REQUEST
+      
   sessionTable:
     Type: AWS::DynamoDB::Table
     Properties:
+      AttributeDefinitions:
+        - AttributeName: "id"
+          AttributeType: "S"
       KeySchema:
-        HashKeyElement: {AttributeName: id, AttributeType: S}
-      ProvisionedThroughput: {ReadCapacityUnits: 2, WriteCapacityUnits: 2}
+        - AttributeName: "id"
+          KeyType: "HASH"
+      BillingMode: PAY_PER_REQUEST
+      
   gameTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -149,9 +162,9 @@ Resources:
           KeySchema:
             - AttributeName: "session"
               KeyType: "HASH"
-          ProvisionedThroughput: {ReadCapacityUnits: 2, WriteCapacityUnits: 2}
           Projection: { ProjectionType: ALL }
-      ProvisionedThroughput: {ReadCapacityUnits: 2, WriteCapacityUnits: 2}
+      BillingMode: PAY_PER_REQUEST
+      
   moveTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -168,9 +181,9 @@ Resources:
           KeySchema:
             - AttributeName: "game"
               KeyType: "HASH"
-          ProvisionedThroughput: {ReadCapacityUnits: 2, WriteCapacityUnits: 2}
           Projection: { ProjectionType: ALL }
-      ProvisionedThroughput: {ReadCapacityUnits: 2, WriteCapacityUnits: 2}
+      BillingMode: PAY_PER_REQUEST
+      
   stateTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -187,12 +200,12 @@ Resources:
           KeySchema:
             - AttributeName: "game"
               KeyType: "HASH"
-          ProvisionedThroughput: {ReadCapacityUnits: 2, WriteCapacityUnits: 2}
           Projection: { ProjectionType: ALL }
-      ProvisionedThroughput: {ReadCapacityUnits: 2, WriteCapacityUnits: 2}
-Outputs:
-  endpoint:
-    Description: Website URL
-    Value: !GetAtt environment.EndpointURL
-    Export:
-      Name: !Join ["-", [!Ref "AWS::StackName","endpoint"]]
+      BillingMode: PAY_PER_REQUEST
+      
+# Outputs:
+#   endpoint:
+#     Description: Website URL
+#     Value: !GetAtt environment.EndpointURL
+#     Export:
+#       Name: !Join ["-", [!Ref "AWS::StackName","endpoint"]]
